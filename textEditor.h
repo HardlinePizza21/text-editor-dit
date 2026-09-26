@@ -19,6 +19,7 @@ extern "C" {
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <termios.h>
 
 
 /* ─── Constants / Macros ──────────────────────────────────────────────── */
@@ -76,12 +77,10 @@ struct abuf {
     int len;
 };
 
-struct editorConfig E;
-
 /* ─── Function Prototypes ─────────────────────────────────────────────── */
 
 // Terminal
-void die(const char *s);
+int die(const char *s);
 void disableRawMode(void);
 void enableRawMode(void);
 int editorReadKey(void);
@@ -105,8 +104,8 @@ void editorDelChar(void);
 
 // File i/o
 char *editorRowsToString(int *buflen);
-void editorSave(void);
-void editorOpen(char *filename);
+int editorSave(void);
+int editorOpen(char *filename);
 
 // Append buffer
 void abAppend(struct abuf *ab, const char *s, int len);
@@ -123,7 +122,7 @@ void editorSetStatusMessage(const char *fmt, ...);
 // Input
 char *editorPrompt(char *prompt);
 void editorMoveCursor(int key);
-void editorProcessKeypress(void);
+int editorProcessKeypress(void);
 
 // Init
 void initEditor(void);
@@ -133,4 +132,4 @@ void initEditor(void);
 } /* extern "C" */
 #endif /* __cplusplus */
 
-#endif /* TEXTEDITOR_H */
+#endif 

@@ -6,6 +6,7 @@
 #include <sys/sysmacros.h>
 #include <errno.h>
 #include <time.h>
+#include "textEditor.h"
 
 int cmd_d_dit(int argc, char **argv)
 {
@@ -14,7 +15,10 @@ int cmd_d_dit(int argc, char **argv)
 
     if (argc >= 2)
     {
-        editorOpen(argv[1]);
+        LOG_SYSCALL("open and read", "\"%s\", O_RDONLY", "");
+        if (editorOpen(argv[1]) == -1)
+            LOG_SYSCALL_ERROR(strerror(errno));
+            return 1;
     }
 
     editorSetStatusMessage("HELP: Ctrl-S = save | Ctrl-Q = quit");
@@ -22,10 +26,26 @@ int cmd_d_dit(int argc, char **argv)
     while (1)
     {
         editorRefreshScreen();
-        editorProcessKeypress();
+
+        int exitSignal = editorProcessKeypress();
+        if(exitSignal == 1){
+            LOG_SYSCALL("write", "\"%s\", O_RDWR | O_CREAT, 0644", "");
+        }
+        
+        if(exitSignal == -1){
+            LOG_SYSCALL("write", "\"%s\", O_RDWR | O_CREAT, 0644", "");
+            LOG_SYSCALL_ERROR(strerror(errno));
+        }
+
+        if(exitSignal == 3){
+            LOG_SYSCALL_RESULT("Save aborted");
+        }
+
+        if (exitSignal == 2)
+            break;
+            return 1;
     }
     return 0;
-
 }
 
 /**

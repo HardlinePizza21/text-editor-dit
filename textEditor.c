@@ -4,7 +4,6 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <termios.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include <string.h>
@@ -14,16 +13,17 @@
 #include <time.h>
 #include "textEditor.h"
 
+struct editorConfig E;
 
 /*** Terminal ***/
 
-void die(const char *s)
+int die(const char *s)
 {
     write(STDOUT_FILENO, "\x1b[2J", 4);
     write(STDOUT_FILENO, "\x1b[H", 4);
+    disableRawMode();
 
-    perror(s);
-    exit(1);
+    return -1;
 }
 
 void disableRawMode()
@@ -367,7 +367,7 @@ char *editorRowsToString(int *buflen)
     return buf;
 }
 
-void editorSave()
+int editorSave()
 {
     if (E.filename == NULL)
     {
@@ -375,7 +375,7 @@ void editorSave()
         if (E.filename == NULL)
         {
             editorSetStatusMessage("Save aborted");
-            return;
+            return 3;
         }
     }
 
@@ -393,23 +393,26 @@ void editorSave()
                 free(buf);
                 E.dirty = 0;
                 editorSetStatusMessage("%d bytes written to disk", len);
-                return;
+                return 1;
             }
         }
         close(fd);
     }
     editorSetStatusMessage("Can't save! I/O error: %s", strerror(errno));
     free(buf);
+    return -1;
 }
 
-void editorOpen(char *filename)
+int editorOpen(char *filename)
 {
     free(E.filename);
     E.filename = strdup(filename);
 
     int fd = open(filename, O_RDONLY);
     if (fd == -1)
-        die("open");
+    {
+        return die("open");
+    }
 
     char buf[4096];
     ssize_t n;
@@ -461,17 +464,10 @@ void editorOpen(char *filename)
     }
     E.dirty = 0;
     close(fd);
+    return 0;
 }
 
 /*** append buffer ***/
-
-struct abuf
-{
-    char *b;
-    int len;
-};
-
-#define ABUF_INIT {NULL, 0}
 
 void abAppend(struct abuf *ab, const char *s, int len)
 {
@@ -736,7 +732,7 @@ void editorMoveCursor(int key)
         E.cx = rowlen;
 }
 
-void editorProcessKeypress()
+int editorProcessKeypress()
 {
     static int quit_times = KILO_QUIT_TIMES;
     int c = editorReadKey();
@@ -747,7 +743,7 @@ void editorProcessKeypress()
         editorInsertNewline();
         break;
     case CTRL_KEY('s'):
-        editorSave();
+        return editorSave();
         break;
 
     case CTRL_KEY('q'):
@@ -757,12 +753,15 @@ void editorProcessKeypress()
                                    "Press Ctrl-Q %d more times to quit.",
                                    quit_times);
             quit_times--;
-            return;
+            return 0;
         }
 
         write(STDOUT_FILENO, "\x1b[2J", 4);
         write(STDOUT_FILENO, "\x1b[H", 3);
-        exit(0);
+        disableRawMode();
+
+        return 2;
+
         break;
 
     case PAGE_DOWN:
@@ -820,6 +819,7 @@ void editorProcessKeypress()
     }
 
     quit_times = KILO_QUIT_TIMES;
+    return 0;
 }
 
 /*** init ***/
@@ -841,24 +841,4 @@ void initEditor()
     if (getWindowSize(&E.screenrows, &E.screencols) == -1)
         die("getWindowSize");
     E.screenrows -= 2;
-}
-
-int main(int argc, char *argv[])
-{
-    enableRawMode();
-    initEditor();
-
-    if (argc >= 2)
-    {
-        editorOpen(argv[1]);
-    }
-
-    editorSetStatusMessage("HELP: Ctrl-S = save | Ctrl-Q = quit");
-
-    while (1)
-    {
-        editorRefreshScreen();
-        editorProcessKeypress();
-    }
-    return 0;
 }

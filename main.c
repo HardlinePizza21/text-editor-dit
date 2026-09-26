@@ -16,7 +16,7 @@
 Command commands[] = {
     /* --- Categoría: Datos --- */
     {
-        "d_create", "datos", 
+        "d_dit", "datos", 
         "d_create dit \"<filename> | nada\"", 
         "Abre un editor de texto con el filename, si no se le pasa el filename se puede crear un archivo",
         "open(2), write(2), read(2), close(2)", 
