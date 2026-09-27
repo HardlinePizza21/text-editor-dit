@@ -18,7 +18,7 @@ int cmd_d_dit(int argc, char **argv)
         LOG_SYSCALL("open and read", "\"%s\", O_RDONLY", "");
         if (editorOpen(argv[1]) == -1)
             LOG_SYSCALL_ERROR(strerror(errno));
-            return 1;
+            // return 1;
     }
 
     editorSetStatusMessage("HELP: Ctrl-S = save | Ctrl-Q = quit");
