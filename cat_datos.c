@@ -42,7 +42,6 @@ int cmd_d_dit(int argc, char **argv)
         }
 
         if (exitSignal == 2)
-            break;
             return 1;
     }
     return 0;
