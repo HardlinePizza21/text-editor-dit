@@ -112,3 +112,10 @@ El shell cuenta con una sección de ayuda dinámica muy completa. Puedes escribi
 * `help`: Muestra la bienvenida y el listado de categorías.
 * `help <categoria>`: Muestra todos los comandos pertenecientes a `datos`, `memoria`, `monitoreo` o `utilidades`.
 * `help <comando>`: Explica individualmente qué hace un comando, cómo se usa y qué llamadas al sistema específicas invoca.
+
+## Editor `d_dit` y compresión Huffman
+
+`d_dit [archivo]` abre el editor. Ctrl-K comprime a `<archivo>.huf` y Ctrl-U
+descomprime, ambos en segundo plano con barra de progreso (Ctrl-X cancela).
+Ver [INTEGRACION_EDITOR.md](INTEGRACION_EDITOR.md) y
+[HUFFMAN_THREADPOOL.md](HUFFMAN_THREADPOOL.md). Pruebas: `make test`.
