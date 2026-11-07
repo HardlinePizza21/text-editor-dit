@@ -12,8 +12,13 @@
 #include <fcntl.h>
 #include <time.h>
 #include "textEditor.h"
+#include "huffman.h"
 
 struct editorConfig E;
+
+/* Tarea Huffman en segundo plano; solo el hilo de UI la toca (el job se sincroniza internamente). */
+static HuffJob *huffJob = NULL;
+static HuffMode huffJobMode;
 
 /*** Terminal ***/
 
@@ -55,6 +60,9 @@ int editorReadKey()
     {
         if (nread == -1 && errno != EAGAIN)
             die("read");
+        /* Timeout de termios (VTIME): despierta la UI para refrescar el progreso sin busy-wait */
+        if (nread == 0 && huffJob != NULL)
+            return KEY_TICK;
     }
 
     if (c == '\x1b')
@@ -379,6 +387,12 @@ int editorSave()
         }
     }
 
+    if (huffJob != NULL && huff_path_busy(huffJob, E.filename))
+    {
+        editorSetStatusMessage("Archivo en uso por compresion/descompresion: guardado bloqueado");
+        return 3;
+    }
+
     int len;
     char *buf = editorRowsToString(&len);
 
@@ -637,6 +651,106 @@ void editorSetStatusMessage(const char *fmt, ...)
     E.statusmsg_time = time(NULL);
 }
 
+/*** Huffman en segundo plano ***/
+
+static const char *huffLabel(void)
+{
+    return huffJobMode == HUFF_COMPRESS ? "Comprimiendo" : "Descomprimiendo";
+}
+
+static void editorHuffLaunch(HuffMode mode, const char *in, const char *out)
+{
+    huffJob = huff_start(mode, in, out, 0, 0);
+    if (huffJob == NULL)
+    {
+        editorSetStatusMessage("Huffman: %s", strerror(errno));
+        return;
+    }
+    huffJobMode = mode;
+    editorSetStatusMessage("%s %s (Ctrl-X cancela)", huffLabel(), in);
+}
+
+void editorStartCompress(void)
+{
+    if (huffJob != NULL)
+        return editorSetStatusMessage("Ya hay una tarea Huffman en curso");
+    if (E.filename == NULL)
+        return editorSetStatusMessage("Guarde el archivo antes de comprimir");
+    if (E.dirty)
+        return editorSetStatusMessage("Cambios sin guardar: Ctrl-S antes de comprimir");
+
+    char out[512];
+    snprintf(out, sizeof out, "%s.huf", E.filename);
+    editorHuffLaunch(HUFF_COMPRESS, E.filename, out);
+}
+
+void editorStartDecompress(void)
+{
+    if (huffJob != NULL)
+        return editorSetStatusMessage("Ya hay una tarea Huffman en curso");
+
+    char *in = editorPrompt("Descomprimir archivo .huf: %s (ESC cancela)");
+    if (in == NULL)
+        return;
+
+    char out[512];
+    size_t n = strlen(in);
+    if (n > 4 && strcmp(in + n - 4, ".huf") == 0)
+        snprintf(out, sizeof out, "%.*s", (int)(n - 4), in);
+    else
+        snprintf(out, sizeof out, "%s.out", in);
+
+    if (E.filename != NULL && strcmp(out, E.filename) == 0)
+        editorSetStatusMessage("La salida es el archivo abierto; renombre el .huf");
+    else
+        editorHuffLaunch(HUFF_DECOMPRESS, in, out);
+    free(in);
+}
+
+void editorCancelHuffman(void)
+{
+    if (huffJob == NULL)
+        return;
+    huff_cancel(huffJob);
+    editorSetStatusMessage("Cancelando...");
+}
+
+/* Llamada en cada tick de la UI: muestra progreso y recoge el resultado. */
+void editorHuffTick(void)
+{
+    if (huffJob == NULL)
+        return;
+    int pct;
+    if (huff_poll(huffJob, &pct) == HUFF_RUNNING)
+    {
+        char bar[21];
+        for (int i = 0; i < 20; i++)
+            bar[i] = i < pct / 5 ? '#' : '-';
+        bar[20] = '\0';
+        editorSetStatusMessage("%s [%s] %d%% (Ctrl-X cancela)", huffLabel(), bar, pct);
+        return;
+    }
+    char err[96];
+    HuffState st = huff_finish(huffJob, err, sizeof err);
+    huffJob = NULL;
+    if (st == HUFF_DONE)
+        editorSetStatusMessage("%s: completado", huffLabel());
+    else if (st == HUFF_CANCELLED)
+        editorSetStatusMessage("%s: cancelado", huffLabel());
+    else
+        editorSetStatusMessage("Huffman fallo: %s", err);
+}
+
+/* Al salir: cancela y une los hilos para no dejar archivos temporales ni hilos colgados. */
+void editorHuffShutdown(void)
+{
+    if (huffJob == NULL)
+        return;
+    huff_cancel(huffJob);
+    huff_finish(huffJob, NULL, 0);
+    huffJob = NULL;
+}
+
 /*** Input ***/
 char *editorPrompt(char *prompt)
 {
@@ -739,6 +853,18 @@ int editorProcessKeypress()
 
     switch (c)
     {
+    case KEY_TICK:
+        editorHuffTick();
+        return 0;
+    case CTRL_KEY('e'):
+        editorStartCompress();
+        break;
+    case CTRL_KEY('d'):
+        editorStartDecompress();
+        break;
+    case CTRL_KEY('x'):
+        editorCancelHuffman();
+        break;
     case '\r':
         editorInsertNewline();
         break;
@@ -756,6 +882,7 @@ int editorProcessKeypress()
             return 0;
         }
 
+        editorHuffShutdown();
         write(STDOUT_FILENO, "\x1b[2J", 4);
         write(STDOUT_FILENO, "\x1b[H", 3);
         disableRawMode();

@@ -43,7 +43,8 @@ enum editorKey {
     HOME_KEY,
     END_KEY,
     PAGE_UP,
-    PAGE_DOWN
+    PAGE_DOWN,
+    KEY_TICK = 2000
 };
 
 
@@ -123,6 +124,13 @@ void editorSetStatusMessage(const char *fmt, ...);
 char *editorPrompt(char *prompt);
 void editorMoveCursor(int key);
 int editorProcessKeypress(void);
+
+// Huffman (segundo plano)
+void editorStartCompress(void);
+void editorStartDecompress(void);
+void editorCancelHuffman(void);
+void editorHuffTick(void);
+void editorHuffShutdown(void);
 
 // Init
 void initEditor(void);

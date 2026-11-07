@@ -21,7 +21,7 @@ int cmd_d_dit(int argc, char **argv)
             // return 1;
     }
 
-    editorSetStatusMessage("HELP: Ctrl-S = save | Ctrl-Q = quit");
+    editorSetStatusMessage("HELP: Ctrl-S save | Ctrl-Q quit | Ctrl-E comprimir | Ctrl-D descomprimir");
 
     while (1)
     {
