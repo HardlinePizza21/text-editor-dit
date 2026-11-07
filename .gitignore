@@ -1,2 +1,5 @@
 *.o
 sys_shell
+eafitOS
+test_huffman_tsan
+test_huffman_asan

@@ -17,9 +17,9 @@ Command commands[] = {
     /* --- Categoría: Datos --- */
     {
         "d_dit", "datos", 
-        "d_create dit \"<filename> | nada\"", 
-        "Abre un editor de texto con el filename, si no se le pasa el filename se puede crear un archivo",
-        "open(2), write(2), read(2), close(2)", 
+        "d_dit [archivo]",
+        "Editor de texto (Ctrl-S guardar, Ctrl-K comprimir, Ctrl-U descomprimir Huffman en segundo plano, Ctrl-X cancelar, Ctrl-Q salir)",
+        "open(2), read(2), write(2), pread(2), rename(2), pthread_create(3)",
         cmd_d_dit
     },
     {

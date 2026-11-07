@@ -10,41 +10,17 @@
 
 int cmd_d_dit(int argc, char **argv)
 {
-    enableRawMode();
-    initEditor();
-
-    if (argc >= 2)
+    switch (editorRun(argc >= 2 ? argv[1] : NULL))
     {
-        LOG_SYSCALL("open and read", "\"%s\", O_RDONLY", "");
-        if (editorOpen(argv[1]) == -1)
-            LOG_SYSCALL_ERROR(strerror(errno));
-            // return 1;
+    case EDITOR_OK:
+        return 0;
+    case EDITOR_ERR_TTY:
+        printf(COLOR_ERROR "d_dit: se requiere una terminal interactiva.\n" COLOR_RESET);
+        return 1;
+    default:
+        printf(COLOR_ERROR "d_dit: error de entrada/salida.\n" COLOR_RESET);
+        return 1;
     }
-
-    editorSetStatusMessage("HELP: Ctrl-S save | Ctrl-Q quit | Ctrl-E comprimir | Ctrl-D descomprimir");
-
-    while (1)
-    {
-        editorRefreshScreen();
-
-        int exitSignal = editorProcessKeypress();
-        if(exitSignal == 1){
-            LOG_SYSCALL("write", "\"%s\", O_RDWR | O_CREAT, 0644", "");
-        }
-        
-        if(exitSignal == -1){
-            LOG_SYSCALL("write", "\"%s\", O_RDWR | O_CREAT, 0644", "");
-            LOG_SYSCALL_ERROR(strerror(errno));
-        }
-
-        if(exitSignal == 3){
-            LOG_SYSCALL_RESULT("Save aborted");
-        }
-
-        if (exitSignal == 2)
-            return 1;
-    }
-    return 0;
 }
 
 /**
